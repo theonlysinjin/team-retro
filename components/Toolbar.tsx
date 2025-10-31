@@ -61,7 +61,7 @@ export default function Toolbar({ sessionCode, encryption }: ToolbarProps) {
 
   const copySessionLink = () => {
     if (Platform.OS === "web") {
-      const link = `${window.location.origin}/session/${sessionCode}`;
+      const link = `${window.location.origin}/team-retro/session/${sessionCode}`;
       navigator.clipboard.writeText(link);
       alert("Session link copied!");
     }
@@ -69,7 +69,7 @@ export default function Toolbar({ sessionCode, encryption }: ToolbarProps) {
 
   const copyHostLink = () => {
     if (Platform.OS === "web" && session?.hostToken) {
-      const link = `${window.location.origin}/session/${sessionCode}?h=${session.hostToken}`;
+      const link = `${window.location.origin}/team-retro/session/${sessionCode}?h=${session.hostToken}`;
       navigator.clipboard.writeText(link);
       alert("🔑 Host link copied! Keep this private!");
     }

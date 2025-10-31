@@ -25,7 +25,17 @@ interface CardProps {
 }
 
 export default function Card({ card, votes, hasVoted, voters, encryption }: CardProps) {
-  const [isEditing, setIsEditing] = useState(false);
+  // Auto-edit if card has placeholder text
+  const isPlaceholder = [
+    "What's on your mind?",
+    "Share your thoughts...",
+    "Tell us more!",
+    "What happened?",
+    "Any ideas?",
+    "Your feedback here...",
+  ].includes(card.content);
+
+  const [isEditing, setIsEditing] = useState(isPlaceholder);
   const [editContent, setEditContent] = useState(card.content);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showVoters, setShowVoters] = useState(false);
@@ -232,7 +242,7 @@ export default function Card({ card, votes, hasVoted, voters, encryption }: Card
 
 const styles = StyleSheet.create({
   card: {
-    width: 280,
+    width: "min(280px, 90vw)" as any,
     minHeight: 140,
     borderRadius: 8,
     padding: 16,

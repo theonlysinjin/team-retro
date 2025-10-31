@@ -44,9 +44,19 @@ export default function Board({ encryption }: BoardProps) {
     const x = (e.clientX - rect.left - canvasOffset.x) / canvasZoom;
     const y = (e.clientY - rect.top - canvasOffset.y) / canvasZoom;
 
-    // Quick card creation with default color
+    // Quick card creation with fun placeholder
+    const placeholders = [
+      "What's on your mind?",
+      "Share your thoughts...",
+      "Tell us more!",
+      "What happened?",
+      "Any ideas?",
+      "Your feedback here...",
+    ];
+    const placeholder = placeholders[Math.floor(Math.random() * placeholders.length)];
+
     const encryptedData = encryptCardData(
-      "New card - double-click to edit",
+      placeholder,
       DEFAULT_COLOR.value,
       null,
       encryption
