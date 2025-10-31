@@ -83,11 +83,12 @@ export default function Board({ encryption }: BoardProps) {
     const target = e.target as HTMLElement;
     if (target.closest('[data-card]')) return;
 
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
+    const containerRect = containerRef.current?.getBoundingClientRect();
+    if (!containerRect) return;
 
-    const x = (e.clientX - rect.left - canvasOffset.x) / canvasZoom;
-    const y = (e.clientY - rect.top - canvasOffset.y) / canvasZoom;
+    // Calculate position relative to the container, accounting for canvas offset
+    const x = (e.clientX - containerRect.left - canvasOffset.x);
+    const y = (e.clientY - containerRect.top - canvasOffset.y);
 
     // Quick card creation with fun placeholder
     const placeholders = [
