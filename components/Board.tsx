@@ -1,0 +1,307 @@
+import React, { useState, useRef } from "react";
+import { View, Text, StyleSheet, Platform } from "react-native";
+import { DndContext, DragEndEvent, DragOverlay, closestCenter } from "@dnd-kit/core";
+import { useMutation } from "convex/react";
+import { api } from "../convex/_generated/api";
+import useRetroStore from "../store/useRetroStore";
+import Card from "./Card";
+import type { SessionEncryption } from "../utils/encryption";
+import { DEFAULT_COLOR, CARD_COLORS } from "../utils/colors";
+import { encryptCardData } from "../utils/encryption";
+
+interface BoardProps {
+  encryption: SessionEncryption;
+}
+
+export default function Board({ encryption }: BoardProps) {
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const sessionId = useRetroStore((state) => state.sessionId);
+  const userName = useRetroStore((state) => state.userName);
+  const cards = useRetroStore((state) => state.cards);
+  const votes = useRetroStore((state) => state.votes);
+  const canvasOffset = useRetroStore((state) => state.canvasOffset);
+  const canvasZoom = useRetroStore((state) => state.canvasZoom);
+  const setCanvasOffset = useRetroStore((state) => state.setCanvasOffset);
+  const setCanvasZoom = useRetroStore((state) => state.setCanvasZoom);
+  const updateCardPosition = useRetroStore((state) => state.updateCardPosition);
+
+  const createCardMutation = useMutation(api.cards.createCard);
+  const updateCardMutation = useMutation(api.cards.updateCard);
+
+  // Handle double-click to create card
+  const handleDoubleClick = async (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!sessionId || !userName) return;
+
+    // Don't create card if clicking on an existing card
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-card]')) return;
+
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const x = (e.clientX - rect.left - canvasOffset.x) / canvasZoom;
+    const y = (e.clientY - rect.top - canvasOffset.y) / canvasZoom;
+
+    // Quick card creation with default color
+    const encryptedData = encryptCardData(
+      "New card - double-click to edit",
+      DEFAULT_COLOR.value,
+      null,
+      encryption
+    );
+
+    await createCardMutation({
+      sessionId,
+      encryptedData,
+      position: { x, y },
+      authorName: userName,
+    });
+  };
+
+  // Handle card drag end
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, delta } = event;
+
+    if (!delta) return;
+
+    const card = cards.find((c) => c._id === active.id);
+    if (!card) return;
+
+    const newX = card.position.x + delta.x / canvasZoom;
+    const newY = card.position.y + delta.y / canvasZoom;
+
+    // Check if dropped on another card (within 50px)
+    const droppedOnCard = cards.find((c) => {
+      if (c._id === card._id) return false;
+      const dx = Math.abs(c.position.x - newX);
+      const dy = Math.abs(c.position.y - newY);
+      return dx < 50 && dy < 50;
+    });
+
+    let finalPosition: { x: number; y: number };
+
+    if (droppedOnCard) {
+      // Snap to same position with offset for grouping
+      finalPosition = {
+        x: droppedOnCard.position.x + 20,
+        y: droppedOnCard.position.y + 20
+      };
+      console.log("Grouped with card:", droppedOnCard._id);
+    } else {
+      finalPosition = { x: newX, y: newY };
+    }
+
+    // Optimistic update - update UI immediately
+    updateCardPosition(card._id, finalPosition);
+
+    // Sync to Convex in background (don't await)
+    updateCardMutation({
+      cardId: card._id,
+      position: finalPosition,
+    }).catch((error) => {
+      console.error("Failed to update card position:", error);
+      // Position will be corrected on next sync from Convex
+    });
+
+    setActiveId(null);
+  };
+
+  // Handle canvas pan
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-card]')) return;
+
+    // Implement panning
+    let startX = e.clientX;
+    let startY = e.clientY;
+    const startOffsetX = canvasOffset.x;
+    const startOffsetY = canvasOffset.y;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const dx = moveEvent.clientX - startX;
+      const dy = moveEvent.clientY - startY;
+      setCanvasOffset({ x: startOffsetX + dx, y: startOffsetY + dy });
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  // Handle zoom
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = -e.deltaY * 0.001;
+      const newZoom = Math.max(0.5, Math.min(2, canvasZoom + delta));
+      setCanvasZoom(newZoom);
+    }
+  };
+
+  const activeCard = activeId ? cards.find((c) => c._id === activeId) : null;
+
+  if (Platform.OS !== "web") return null;
+
+  return (
+    <div
+      ref={canvasRef}
+      style={{
+        flex: 1,
+        position: "relative",
+        overflow: "hidden",
+        cursor: "grab",
+      }}
+      onDoubleClick={handleDoubleClick}
+      onMouseDown={handleMouseDown}
+      onWheel={handleWheel}
+    >
+      {/* Visual lane guides */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          transform: `translate(${canvasOffset.x}px, ${canvasOffset.y}px) scale(${canvasZoom})`,
+          transformOrigin: "0 0",
+          pointerEvents: "none",
+        }}
+      >
+        <View style={styles.laneGuides}>
+          <View style={[styles.lane, styles.laneWell]}>
+            <Text style={styles.laneLabel}>😊 What Went Well</Text>
+          </View>
+          <View style={[styles.lane, styles.laneBadly]}>
+            <Text style={styles.laneLabel}>😞 What Needs Work</Text>
+          </View>
+          <View style={[styles.lane, styles.laneTodo]}>
+            <Text style={styles.laneLabel}>✅ Action Items</Text>
+          </View>
+        </View>
+      </div>
+
+      {/* Cards canvas */}
+      <DndContext
+        onDragStart={({ active }) => setActiveId(active.id as string)}
+        onDragEnd={handleDragEnd}
+        onDragCancel={() => setActiveId(null)}
+        collisionDetection={closestCenter}
+      >
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            transform: `translate(${canvasOffset.x}px, ${canvasOffset.y}px) scale(${canvasZoom})`,
+            transformOrigin: "0 0",
+          }}
+        >
+          {cards.map((card) => {
+            const cardVotes = votes.filter((v) => v.cardId === card._id);
+            const hasVoted = cardVotes.some((v) => v.userName === userName);
+            const voters = cardVotes.map((v) => v.userName);
+
+            return (
+              <div
+                key={card._id}
+                data-card
+                style={{
+                  position: "absolute",
+                  left: card.position.x,
+                  top: card.position.y,
+                }}
+              >
+                <Card
+                  card={card}
+                  votes={cardVotes.length}
+                  hasVoted={hasVoted}
+                  voters={voters}
+                  encryption={encryption}
+                />
+              </div>
+            );
+          })}
+        </div>
+
+        <DragOverlay>
+          {activeId && activeCard ? (
+            <div style={{ opacity: 0.8 }}>
+              <Card
+                card={activeCard}
+                votes={votes.filter((v) => v.cardId === activeId).length}
+                hasVoted={votes.some((v) => v.cardId === activeId && v.userName === userName)}
+                voters={votes.filter((v) => v.cardId === activeId).map((v) => v.userName)}
+                encryption={encryption}
+              />
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+
+      {/* Instructions overlay */}
+      {cards.length === 0 && (
+        <div style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          textAlign: "center",
+          pointerEvents: "none",
+        }}>
+          <Text style={styles.instructionText}>Double-click anywhere to create a card</Text>
+          <Text style={styles.instructionSubtext}>or use the "Add Card" button</Text>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const styles = StyleSheet.create({
+  laneGuides: {
+    flexDirection: "row",
+    height: "100%",
+    width: "100%",
+  },
+  lane: {
+    flex: 1,
+    borderRightWidth: 2,
+    borderRightColor: "rgba(0, 0, 0, 0.05)",
+    paddingTop: 80,
+    paddingHorizontal: 20,
+  },
+  laneWell: {
+    backgroundColor: "rgba(209, 250, 229, 0.1)",
+  },
+  laneBadly: {
+    backgroundColor: "rgba(254, 226, 226, 0.1)",
+  },
+  laneTodo: {
+    backgroundColor: "rgba(219, 234, 254, 0.1)",
+    borderRightWidth: 0,
+  },
+  laneLabel: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "rgba(0, 0, 0, 0.15)",
+    textAlign: "center",
+  },
+  instructionText: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#9ca3af",
+    marginBottom: 8,
+  },
+  instructionSubtext: {
+    fontSize: 14,
+    color: "#d1d5db",
+  },
+});
