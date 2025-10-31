@@ -1,23 +1,16 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="utf-8">
   <title>Team Retro</title>
   <script>
-    // Single Page Apps for GitHub Pages
-    // https://github.com/rafgraph/spa-github-pages
-    // Redirect to index.html with the path as a query parameter
-    var pathSegmentsToKeep = 1; // For /team-retro/
-    var l = window.location;
-    l.replace(
-      l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
-      l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
-      l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
-      (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
-      l.hash
-    );
+    // GitHub Pages SPA redirect
+    // Store the path and redirect to index
+    sessionStorage.setItem('redirect', location.pathname + location.search + location.hash);
+    location.replace('/team-retro/');
   </script>
 </head>
 <body>
+  <p>Redirecting...</p>
 </body>
 </html>

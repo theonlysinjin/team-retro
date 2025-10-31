@@ -25,7 +25,6 @@ export default function Board({ encryption }: BoardProps) {
   const canvasZoom = useRetroStore((state) => state.canvasZoom);
   const setCanvasOffset = useRetroStore((state) => state.setCanvasOffset);
   const setCanvasZoom = useRetroStore((state) => state.setCanvasZoom);
-  const updateCardPosition = useRetroStore((state) => state.updateCardPosition);
 
   const createCardMutation = useMutation(api.cards.createCard);
   const updateCardMutation = useMutation(api.cards.updateCard);
@@ -103,16 +102,10 @@ export default function Board({ encryption }: BoardProps) {
       finalPosition = { x: newX, y: newY };
     }
 
-    // Optimistic update - update UI immediately
-    updateCardPosition(card._id, finalPosition);
-
-    // Sync to Convex in background (don't await)
+    // Update position in Convex - will sync back immediately
     updateCardMutation({
       cardId: card._id,
       position: finalPosition,
-    }).catch((error) => {
-      console.error("Failed to update card position:", error);
-      // Position will be corrected on next sync from Convex
     });
 
     setActiveId(null);

@@ -42,22 +42,13 @@ export function useSessionData(sessionId: Id<"sessions"> | null, sessionCode: st
     sessionId ? { sessionId } : "skip"
   );
 
-  // Decrypt and update cards (preserve local positions for recently moved cards)
+  // Decrypt and update cards
   useEffect(() => {
     if (rawCards && encryptionRef.current) {
-      const currentCards = useRetroStore.getState().cards;
-
       const decryptedCards: Card[] = rawCards
         .map((card) => {
           const decrypted = decryptCardData(card.encryptedData, encryptionRef.current!);
           if (!decrypted) return null;
-
-          // Check if we have a local version with a different position (recently dragged)
-          const localCard = currentCards.find((c) => c._id === card._id);
-          const useLocalPosition = localCard &&
-            (Math.abs(localCard.position.x - card.position.x) > 1 ||
-             Math.abs(localCard.position.y - card.position.y) > 1) &&
-            Date.now() - card.updatedAt < 2000; // Within 2 seconds
 
           return {
             _id: card._id,
@@ -65,7 +56,7 @@ export function useSessionData(sessionId: Id<"sessions"> | null, sessionCode: st
             content: decrypted.content,
             color: decrypted.color,
             category: decrypted.category,
-            position: useLocalPosition ? localCard.position : card.position,
+            position: card.position,
             authorName: card.authorName,
             createdAt: card.createdAt,
             updatedAt: card.updatedAt,
