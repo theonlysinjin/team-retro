@@ -27,8 +27,7 @@
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro",
-      "output": "static",
-      "basePath": "/team-retro"
+      "output": "static"
     },
     "plugins": [
       "expo-router"
