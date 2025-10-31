@@ -239,7 +239,7 @@ export default function Board({ encryption }: BoardProps) {
 
             return (
               <div
-                key={card._id}
+                key={`${card._id}-${card.updatedAt}`}
                 data-card
                 style={{
                   position: "absolute",

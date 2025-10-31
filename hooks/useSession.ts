@@ -83,7 +83,8 @@ export function useSessionData(sessionId: Id<"sessions"> | null, sessionCode: st
         .filter((c) => c !== null) as Card[];
 
       console.log("Setting", decryptedCards.length, "decrypted cards");
-      setCards(decryptedCards);
+      // Always create new array reference to trigger Zustand update
+      setCards([...decryptedCards]);
     }
   }, [rawCards, setCards]);
 
