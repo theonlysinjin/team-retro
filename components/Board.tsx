@@ -238,6 +238,15 @@ export default function Board({ encryption }: BoardProps) {
 
   if (Platform.OS !== "web") return null;
 
+  // Determine the correct base path for the SVG
+  // In dev: /swimlanes.svg
+  // In prod with base URL: /team-retro/swimlanes.svg
+  const getAssetPath = (path: string) => {
+    if (typeof window === 'undefined') return path;
+    const baseUrl = window.location.pathname.includes('/team-retro') ? '/team-retro' : '';
+    return `${baseUrl}${path}`;
+  };
+
   return (
     <div
       ref={containerRef}
@@ -267,7 +276,7 @@ export default function Board({ encryption }: BoardProps) {
             top: canvasOffset.y,
             width: "1280px",
             height: "1280px",
-            backgroundImage: `url(${require("../assets/swimlanes.svg")})`,
+            backgroundImage: `url(${getAssetPath('/swimlanes.svg')})`,
             backgroundSize: "cover",
             backgroundRepeat: "no-repeat",
             pointerEvents: "none",
