@@ -40,7 +40,13 @@ jobs:
       - name: Build Expo web app
         env:
           EXPO_PUBLIC_CONVEX_URL: ${{ secrets.EXPO_PUBLIC_CONVEX_URL }}
-        run: npx expo export --platform web --base-path /team-retro
+        run: npx expo export --platform web
+
+      - name: Fix base path in HTML
+        run: |
+          find dist -name "*.html" -type f -exec sed -i 's|="/_expo/|="/team-retro/_expo/|g' {} \;
+          find dist -name "*.html" -type f -exec sed -i 's|src="/_expo/|src="/team-retro/_expo/|g' {} \;
+          find dist -name "*.html" -type f -exec sed -i 's|href="/_expo/|href="/team-retro/_expo/|g' {} \;
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
