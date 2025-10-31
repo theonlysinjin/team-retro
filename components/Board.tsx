@@ -259,35 +259,36 @@ export default function Board({ encryption }: BoardProps) {
           })}
         </div>
 
-        <DragOverlay>
-          {activeId && activeCard ? (
-            <div style={{ opacity: 0.8 }}>
-              <Card
-                card={activeCard}
-                votes={votes.filter((v) => v.cardId === activeId).length}
-                hasVoted={votes.some((v) => v.cardId === activeId && v.userName === userName)}
-                voters={votes.filter((v) => v.cardId === activeId).map((v) => v.userName)}
-                encryption={encryption}
-              />
-            </div>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+          <DragOverlay>
+            {activeId && activeCard ? (
+              <div style={{ opacity: 0.8 }}>
+                <Card
+                  card={activeCard}
+                  votes={votes.filter((v) => v.cardId === activeId).length}
+                  hasVoted={votes.some((v) => v.cardId === activeId && v.userName === userName)}
+                  voters={votes.filter((v) => v.cardId === activeId).map((v) => v.userName)}
+                  encryption={encryption}
+                />
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
 
-      {/* Instructions overlay */}
-      {cards.length === 0 && (
-        <div style={{
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          textAlign: "center",
-          pointerEvents: "none",
-        }}>
-          <Text style={styles.instructionText}>Double-click anywhere to create a card</Text>
-          <Text style={styles.instructionSubtext}>or use the "Add Card" button</Text>
-        </div>
-      )}
+        {/* Instructions overlay */}
+        {cards.length === 0 && (
+          <div style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            textAlign: "center",
+            pointerEvents: "none",
+          }}>
+            <Text style={styles.instructionText}>Double-click anywhere to create a card</Text>
+            <Text style={styles.instructionSubtext}>or use the "Add Card" button</Text>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

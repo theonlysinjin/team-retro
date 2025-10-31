@@ -17,7 +17,7 @@ function RootLayoutContent() {
         sessionStorage.removeItem('redirect');
         // Remove /team-retro prefix if present
         const path = redirect.replace('/team-retro', '');
-        if (path && path !== '/') {
+        if (path && path !== '/' && path.length > 0) {
           router.replace(path as any);
         }
       }

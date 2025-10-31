@@ -63,7 +63,7 @@ export function useSessionData(sessionId: Id<"sessions"> | null, sessionCode: st
             sessionId: card.sessionId,
             content: decrypted.content,
             color: decrypted.color,
-            category: decrypted.category,
+            category: decrypted.category as "well" | "badly" | "todo" | null | undefined,
             position: card.position,
             authorName: card.authorName,
             createdAt: card.createdAt,
@@ -71,7 +71,7 @@ export function useSessionData(sessionId: Id<"sessions"> | null, sessionCode: st
             groupId: card.groupId,
           };
         })
-        .filter((c): c is Card => c !== null);
+        .filter((c) => c !== null) as Card[];
 
       console.log("Setting", decryptedCards.length, "decrypted cards");
       setCards(decryptedCards);

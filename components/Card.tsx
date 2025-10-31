@@ -185,15 +185,17 @@ export default function Card({ card, votes, hasVoted, voters, encryption }: Card
             {/* Footer */}
             <View style={styles.footer}>
               {/* Vote button with voter list */}
-              <div style={{ position: "relative" }}>
+              <div
+                style={{ position: "relative" }}
+                onMouseEnter={() => setShowVoters(true)}
+                onMouseLeave={() => setShowVoters(false)}
+              >
                 <TouchableOpacity
                   style={[
                     styles.voteButton,
                     hasVoted && styles.voteButtonActive,
                   ]}
                   onPress={handleVoteToggle}
-                  onMouseEnter={() => setShowVoters(true)}
-                  onMouseLeave={() => setShowVoters(false)}
                 >
                   <Text style={styles.voteIcon}>👍</Text>
                   {votes > 0 && <Text style={styles.voteCount}>{votes}</Text>}
