@@ -20,6 +20,7 @@ export function useSessionData(sessionId: Id<"sessions"> | null, sessionCode: st
   // Initialize encryption when session code changes
   useEffect(() => {
     if (sessionCode) {
+      console.log("Initializing encryption for session:", sessionCode);
       encryptionRef.current = new SessionEncryption(sessionCode);
     }
   }, [sessionCode]);

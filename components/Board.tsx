@@ -31,7 +31,16 @@ export default function Board({ encryption }: BoardProps) {
 
   // Handle double-click to create card
   const handleDoubleClick = async (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!sessionId || !userName) return;
+    if (!sessionId || !userName) {
+      console.error("Cannot create card: missing sessionId or userName", { sessionId, userName });
+      return;
+    }
+
+    if (!encryption) {
+      console.error("Cannot create card: encryption not ready");
+      alert("Not ready yet, please wait a moment...");
+      return;
+    }
 
     // Don't create card if clicking on an existing card
     const target = e.target as HTMLElement;
@@ -54,6 +63,8 @@ export default function Board({ encryption }: BoardProps) {
     ];
     const placeholder = placeholders[Math.floor(Math.random() * placeholders.length)];
 
+    console.log("Creating card at", { x, y }, "by", userName, "encryption ready:", !!encryption);
+
     const encryptedData = encryptCardData(
       placeholder,
       DEFAULT_COLOR.value,
@@ -61,12 +72,20 @@ export default function Board({ encryption }: BoardProps) {
       encryption
     );
 
-    await createCardMutation({
-      sessionId,
-      encryptedData,
-      position: { x, y },
-      authorName: userName,
-    });
+    console.log("Encrypted:", encryptedData.substring(0, 30) + "...");
+
+    try {
+      const result = await createCardMutation({
+        sessionId,
+        encryptedData,
+        position: { x, y },
+        authorName: userName,
+      });
+      console.log("Card created successfully, ID:", result);
+    } catch (error) {
+      console.error("Failed to create card:", error);
+      alert("Failed to create card: " + error);
+    }
   };
 
   // Handle card drag end

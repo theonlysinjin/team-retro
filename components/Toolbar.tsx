@@ -34,7 +34,12 @@ export default function Toolbar({ sessionCode, encryption }: ToolbarProps) {
   const session = useQuery(api.sessions.getSessionByCode, { code: sessionCode });
 
   const handleAddCard = async () => {
-    if (!cardContent.trim() || !sessionId || !userName) return;
+    if (!cardContent.trim() || !sessionId || !userName) {
+      console.error("Cannot add card:", { hasContent: !!cardContent.trim(), sessionId, userName });
+      return;
+    }
+
+    console.log("Adding card:", cardContent.trim(), "by", userName);
 
     const encryptedData = encryptCardData(
       cardContent.trim(),
@@ -43,20 +48,28 @@ export default function Toolbar({ sessionCode, encryption }: ToolbarProps) {
       encryption
     );
 
+    console.log("Encrypted data:", encryptedData.substring(0, 20) + "...");
+
     // Place card in top-right corner (visible but out of way)
     const x = window.innerWidth - 350;
     const y = 100;
 
-    await createCardMutation({
-      sessionId,
-      encryptedData,
-      position: { x, y },
-      authorName: userName,
-    });
+    try {
+      await createCardMutation({
+        sessionId,
+        encryptedData,
+        position: { x, y },
+        authorName: userName,
+      });
+      console.log("Card added successfully");
 
-    setCardContent("");
-    setSelectedColor(DEFAULT_COLOR.value);
-    setShowAddCard(false);
+      setCardContent("");
+      setSelectedColor(DEFAULT_COLOR.value);
+      setShowAddCard(false);
+    } catch (error) {
+      console.error("Failed to add card:", error);
+      alert("Failed to create card. Please try again.");
+    }
   };
 
   const copySessionLink = () => {

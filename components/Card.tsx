@@ -62,6 +62,8 @@ export default function Card({ card, votes, hasVoted, voters, encryption }: Card
 
   const handleSave = async () => {
     if (editContent.trim() && editContent !== card.content) {
+      console.log("Saving card:", card._id, "new content:", editContent.trim());
+
       const encryptedData = encryptCardData(
         editContent.trim(),
         card.color,
@@ -69,10 +71,18 @@ export default function Card({ card, votes, hasVoted, voters, encryption }: Card
         encryption
       );
 
-      await updateCardMutation({
-        cardId: card._id,
-        encryptedData,
-      });
+      console.log("Encrypted update:", encryptedData.substring(0, 30) + "...");
+
+      try {
+        await updateCardMutation({
+          cardId: card._id,
+          encryptedData,
+        });
+        console.log("Card saved successfully");
+      } catch (error) {
+        console.error("Failed to save card:", error);
+        alert("Failed to save card: " + error);
+      }
     }
     setIsEditing(false);
   };
