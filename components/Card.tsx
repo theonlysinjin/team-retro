@@ -164,7 +164,14 @@ export default function Card({ card, votes, hasVoted, voters, encryption }: Card
                 onChangeText={setEditContent}
                 multiline
                 autoFocus
+                selectTextOnFocus
                 onBlur={handleSave}
+                onFocus={(e: any) => {
+                  // Select all text on focus for easy replacement
+                  if (e.target && isPlaceholder) {
+                    setTimeout(() => e.target.select(), 0);
+                  }
+                }}
               />
             ) : (
               <TouchableOpacity onPress={() => setIsEditing(true)}>

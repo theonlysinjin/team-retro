@@ -46,10 +46,17 @@ export function useSessionData(sessionId: Id<"sessions"> | null, sessionCode: st
   // Decrypt and update cards
   useEffect(() => {
     if (rawCards && encryptionRef.current) {
+      console.log("Decrypting", rawCards.length, "cards");
+
       const decryptedCards: Card[] = rawCards
         .map((card) => {
           const decrypted = decryptCardData(card.encryptedData, encryptionRef.current!);
-          if (!decrypted) return null;
+          if (!decrypted) {
+            console.error("Failed to decrypt card:", card._id);
+            return null;
+          }
+
+          console.log("Decrypted card:", card._id, "content:", decrypted.content);
 
           return {
             _id: card._id,
@@ -66,6 +73,7 @@ export function useSessionData(sessionId: Id<"sessions"> | null, sessionCode: st
         })
         .filter((c): c is Card => c !== null);
 
+      console.log("Setting", decryptedCards.length, "decrypted cards");
       setCards(decryptedCards);
     }
   }, [rawCards, setCards]);

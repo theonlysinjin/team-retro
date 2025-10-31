@@ -172,61 +172,66 @@ export default function Board({ encryption }: BoardProps) {
 
   return (
     <div
-      ref={canvasRef}
       style={{
         flex: 1,
         position: "relative",
-        overflow: "hidden",
-        cursor: "grab",
+        overflow: "auto",
+        backgroundColor: "#f3f4f6",
       }}
-      onDoubleClick={handleDoubleClick}
-      onMouseDown={handleMouseDown}
-      onWheel={handleWheel}
     >
-      {/* Visual lane guides */}
       <div
+        ref={canvasRef}
         style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          transform: `translate(${canvasOffset.x}px, ${canvasOffset.y}px) scale(${canvasZoom})`,
-          transformOrigin: "0 0",
-          pointerEvents: "none",
+          position: "relative",
+          width: "max(100%, 2000px)",
+          height: "max(100%, 2000px)",
+          cursor: "grab",
         }}
+        onDoubleClick={handleDoubleClick}
+        onMouseDown={handleMouseDown}
       >
-        <View style={styles.laneGuides}>
-          <View style={[styles.lane, styles.laneWell]}>
-            <Text style={styles.laneLabel}>😊 What Went Well</Text>
-          </View>
-          <View style={[styles.lane, styles.laneBadly]}>
-            <Text style={styles.laneLabel}>😞 What Needs Work</Text>
-          </View>
-          <View style={[styles.lane, styles.laneTodo]}>
-            <Text style={styles.laneLabel}>✅ Action Items</Text>
-          </View>
-        </View>
-      </div>
-
-      {/* Cards canvas */}
-      <DndContext
-        onDragStart={({ active }) => setActiveId(active.id as string)}
-        onDragEnd={handleDragEnd}
-        onDragCancel={() => setActiveId(null)}
-        collisionDetection={closestCenter}
-      >
+        {/* Fixed-size swimlanes centered in viewport */}
         <div
           style={{
-            position: "absolute",
+            position: "sticky",
             top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            transform: `translate(${canvasOffset.x}px, ${canvasOffset.y}px) scale(${canvasZoom})`,
-            transformOrigin: "0 0",
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "720px",
+            height: "1280px",
+            pointerEvents: "none",
+            zIndex: 0,
           }}
         >
+          <View style={styles.laneGuides}>
+            <View style={[styles.lane, styles.laneWell]}>
+              <Text style={styles.laneLabel}>😊 What Went Well</Text>
+            </View>
+            <View style={[styles.lane, styles.laneBadly]}>
+              <Text style={styles.laneLabel}>😞 What Needs Work</Text>
+            </View>
+            <View style={[styles.lane, styles.laneTodo]}>
+              <Text style={styles.laneLabel}>✅ Action Items</Text>
+            </View>
+          </View>
+        </div>
+
+        {/* Cards canvas */}
+        <DndContext
+          onDragStart={({ active }) => setActiveId(active.id as string)}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => setActiveId(null)}
+          collisionDetection={closestCenter}
+        >
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+            }}
+          >
           {cards.map((card) => {
             const cardVotes = votes.filter((v) => v.cardId === card._id);
             const hasVoted = cardVotes.some((v) => v.userName === userName);
@@ -294,11 +299,11 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   lane: {
-    flex: 1,
+    width: 240,
     borderRightWidth: 2,
-    borderRightColor: "rgba(0, 0, 0, 0.05)",
+    borderRightColor: "rgba(0, 0, 0, 0.08)",
     paddingTop: 80,
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
   },
   laneWell: {
     backgroundColor: "rgba(209, 250, 229, 0.1)",
