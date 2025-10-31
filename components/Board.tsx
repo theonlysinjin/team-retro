@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { View, Text, StyleSheet, Platform } from "react-native";
 import { DndContext, DragEndEvent, DragOverlay, closestCenter } from "@dnd-kit/core";
 import { useMutation } from "convex/react";
@@ -31,9 +31,9 @@ export default function Board({ encryption }: BoardProps) {
   const createCardMutation = useMutation(api.cards.createCard);
   const updateCardMutation = useMutation(api.cards.updateCard);
 
-  // Center canvas on first load
-  useEffect(() => {
-    if (!hasScrolled) {
+  // Center canvas on first load (useLayoutEffect runs before paint)
+  useLayoutEffect(() => {
+    if (!hasScrolled && Platform.OS === "web") {
       // Start centered on swimlanes
       setCanvasOffset({ x: window.innerWidth / 2 - 640, y: window.innerHeight / 2 - 640 });
       setHasScrolled(true);
