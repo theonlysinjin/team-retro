@@ -35,7 +35,7 @@ jobs:
       - name: Generate Convex types
         env:
           CONVEX_DEPLOYMENT: ${{ secrets.CONVEX_DEPLOYMENT }}
-        run: npx convex codegen --skip-push
+        run: npx convex codegen
 
       - name: Build Expo web app
         env:
