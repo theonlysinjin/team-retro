@@ -48,6 +48,8 @@ export function useSessionData(sessionId: Id<"sessions"> | null, sessionCode: st
     if (rawCards && encryptionRef.current) {
       console.log("Decrypting", rawCards.length, "cards");
 
+      const currentCards = useRetroStore.getState().cards;
+
       const decryptedCards: Card[] = rawCards
         .map((card) => {
           const decrypted = decryptCardData(card.encryptedData, encryptionRef.current!);
@@ -56,7 +58,14 @@ export function useSessionData(sessionId: Id<"sessions"> | null, sessionCode: st
             return null;
           }
 
-          console.log("Decrypted card:", card._id, "content:", decrypted.content);
+          console.log("Decrypted card:", card._id, "content:", decrypted.content, "updatedAt:", card.updatedAt);
+
+          // Check if we have a newer version locally (prevent overwriting with stale data)
+          const existingCard = currentCards.find((c) => c._id === card._id);
+          if (existingCard && existingCard.updatedAt > card.updatedAt) {
+            console.log("Ignoring stale update for card:", card._id, "local is newer");
+            return existingCard;
+          }
 
           return {
             _id: card._id,
