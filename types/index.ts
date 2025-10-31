@@ -90,6 +90,7 @@ export interface RetroState {
   setPresence: (presence: Presence[]) => void;
   // Optimistic updates for instant UI feedback
   updateCardPosition: (cardId: Id<"cards">, position: { x: number; y: number }) => void;
+  updateCardContent: (cardId: Id<"cards">, content: string, color: string) => void;
   addVoteOptimistic: (cardId: Id<"cards">, userName: string) => void;
   removeVoteOptimistic: (cardId: Id<"cards">, userName: string) => void;
   // Canvas

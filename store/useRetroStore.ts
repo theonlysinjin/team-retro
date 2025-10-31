@@ -72,6 +72,15 @@ const useRetroStore = create<RetroState>((set) => ({
     }));
   },
 
+  // Optimistic card content update
+  updateCardContent: (cardId: Id<"cards">, content: string, color: string) => {
+    set((state) => ({
+      cards: state.cards.map((card) =>
+        card._id === cardId ? { ...card, content, color, updatedAt: Date.now() } : card
+      ),
+    }));
+  },
+
   setCanvasOffset: (offset) => set({ canvasOffset: offset }),
   setCanvasZoom: (zoom) => set({ canvasZoom: zoom }),
 
