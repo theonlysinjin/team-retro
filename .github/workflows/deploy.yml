@@ -34,7 +34,7 @@ jobs:
 
       - name: Generate Convex types
         env:
-          CONVEX_DEPLOYMENT: ${{ secrets.CONVEX_DEPLOYMENT }}
+          CONVEX_DEPLOYMENT: prod:insightful-armadillo-234
         run: npx convex codegen
 
       - name: Build Expo web app
