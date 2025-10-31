@@ -267,7 +267,7 @@ export default function Board({ encryption }: BoardProps) {
             top: canvasOffset.y,
             width: "1280px",
             height: "1280px",
-            backgroundImage: "url(/swimlanes.svg)",
+            backgroundImage: `url(${require("../assets/swimlanes.svg")})`,
             backgroundSize: "cover",
             backgroundRepeat: "no-repeat",
             pointerEvents: "none",
