@@ -36,7 +36,7 @@ export default function Card({ card, votes, hasVoted, voters, encryption }: Card
   ].includes(card.content);
 
   const [isEditing, setIsEditing] = useState(isPlaceholder);
-  const [editContent, setEditContent] = useState(card.content);
+  const [localContent, setLocalContent] = useState(card.content);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showVoters, setShowVoters] = useState(false);
 
@@ -45,12 +45,13 @@ export default function Card({ card, votes, hasVoted, voters, encryption }: Card
   const addVoteOptimistic = useRetroStore((state) => state.addVoteOptimistic);
   const removeVoteOptimistic = useRetroStore((state) => state.removeVoteOptimistic);
 
-  // Sync editContent when card.content changes (from Convex updates)
+  // Sync local content with card prop when not editing
   useEffect(() => {
-    if (!isEditing) {
-      setEditContent(card.content);
+    if (!isEditing && card.content !== localContent) {
+      console.log("Syncing card content:", card._id, "from", localContent, "to", card.content);
+      setLocalContent(card.content);
     }
-  }, [card.content, isEditing]);
+  }, [card.content, isEditing, localContent, card._id]);
 
   const updateCardMutation = useMutation(api.cards.updateCard);
   const deleteCardMutation = useMutation(api.cards.deleteCard);
@@ -68,11 +69,11 @@ export default function Card({ card, votes, hasVoted, voters, encryption }: Card
     : undefined;
 
   const handleSave = async () => {
-    if (editContent.trim() && editContent !== card.content) {
-      console.log("Saving card:", card._id, "new content:", editContent.trim());
+    if (localContent.trim() && localContent !== card.content) {
+      console.log("Saving card:", card._id, "old:", card.content, "new:", localContent.trim());
 
       const encryptedData = encryptCardData(
-        editContent.trim(),
+        localContent.trim(),
         card.color,
         card.category || null,
         encryption
@@ -177,8 +178,8 @@ export default function Card({ card, votes, hasVoted, voters, encryption }: Card
             {isEditing ? (
               <TextInput
                 style={styles.input}
-                value={editContent}
-                onChangeText={setEditContent}
+                value={localContent}
+                onChangeText={setLocalContent}
                 multiline
                 autoFocus
                 selectTextOnFocus
