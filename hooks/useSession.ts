@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
 import useRetroStore from "../store/useRetroStore";
-import { SessionEncryption, decryptCardData, decryptGroupData } from "../utils/encryption";
+import { SessionEncryption, decryptCardData } from "../utils/encryption";
 import type { Card, Group } from "../types";
 
 /**
@@ -34,6 +34,12 @@ export function useSessionData(sessionId: Id<"sessions"> | null, sessionCode: st
   // Subscribe to votes
   const votes = useQuery(
     api.cards.getVotes,
+    sessionId ? { sessionId } : "skip"
+  );
+
+  // Subscribe to groups
+  const rawGroups = useQuery(
+    api.groups.getGroups,
     sessionId ? { sessionId } : "skip"
   );
 
@@ -87,6 +93,28 @@ export function useSessionData(sessionId: Id<"sessions"> | null, sessionCode: st
       setCards([...decryptedCards]);
     }
   }, [rawCards, setCards]);
+
+  // Decrypt and update groups
+  useEffect(() => {
+    if (rawGroups && encryptionRef.current) {
+      const decryptedGroups = rawGroups
+        .map((group) => {
+          const decrypted = encryptionRef.current!.decrypt(group.encryptedData);
+          if (!decrypted) return null;
+
+          return {
+            _id: group._id,
+            sessionId: group.sessionId,
+            name: decrypted.name,
+            color: decrypted.color,
+            position: group.position,
+          };
+        })
+        .filter((g) => g !== null) as Group[];
+
+      setGroups(decryptedGroups);
+    }
+  }, [rawGroups, setGroups]);
 
   // Update votes
   useEffect(() => {

@@ -62,11 +62,8 @@ export default function Card({ card, votes, hasVoted, voters, encryption }: Card
     id: card._id,
   });
 
-  const style = transform
-    ? {
-        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-      }
-    : undefined;
+  // Don't apply transform - we handle position via absolute positioning
+  const style = undefined;
 
   const handleSave = async () => {
     if (localContent.trim() && localContent !== card.content) {

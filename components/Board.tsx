@@ -23,6 +23,7 @@ export default function Board({ encryption }: BoardProps) {
   const userName = useRetroStore((state) => state.userName);
   const cards = useRetroStore((state) => state.cards);
   const votes = useRetroStore((state) => state.votes);
+  const groups = useRetroStore((state) => state.groups);
   const canvasOffset = useRetroStore((state) => state.canvasOffset);
   const canvasZoom = useRetroStore((state) => state.canvasZoom);
   const setCanvasOffset = useRetroStore((state) => state.setCanvasOffset);
@@ -30,6 +31,8 @@ export default function Board({ encryption }: BoardProps) {
 
   const createCardMutation = useMutation(api.cards.createCard);
   const updateCardMutation = useMutation(api.cards.updateCard);
+  const createGroupMutation = useMutation(api.groups.createGroup);
+  const addCardToGroupMutation = useMutation(api.groups.addCardToGroup);
 
   // Center canvas on first load (useLayoutEffect runs before paint)
   useLayoutEffect(() => {
@@ -127,43 +130,71 @@ export default function Board({ encryption }: BoardProps) {
   };
 
   // Handle card drag end
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, delta } = event;
 
-    if (!delta) return;
+    if (!delta) {
+      setActiveId(null);
+      return;
+    }
 
     const card = cards.find((c) => c._id === active.id);
-    if (!card) return;
+    if (!card) {
+      setActiveId(null);
+      return;
+    }
 
-    const newX = card.position.x + delta.x / canvasZoom;
-    const newY = card.position.y + delta.y / canvasZoom;
+    const newX = card.position.x + delta.x;
+    const newY = card.position.y + delta.y;
 
-    // Check if dropped on another card (within 50px)
+    // Check if dropped on another card (within 80px)
     const droppedOnCard = cards.find((c) => {
       if (c._id === card._id) return false;
       const dx = Math.abs(c.position.x - newX);
       const dy = Math.abs(c.position.y - newY);
-      return dx < 50 && dy < 50;
+      return dx < 80 && dy < 80;
     });
-
-    let finalPosition: { x: number; y: number };
 
     if (droppedOnCard) {
-      // Snap to same position with offset for grouping
-      finalPosition = {
-        x: droppedOnCard.position.x + 20,
-        y: droppedOnCard.position.y + 20
-      };
-      console.log("Grouped with card:", droppedOnCard._id);
-    } else {
-      finalPosition = { x: newX, y: newY };
-    }
+      console.log("Dropped on card:", droppedOnCard._id);
 
-    // Update position in Convex - will sync back immediately
-    updateCardMutation({
-      cardId: card._id,
-      position: finalPosition,
-    });
+      // Check if target card already has a group
+      if (droppedOnCard.groupId) {
+        // Add this card to existing group
+        await addCardToGroupMutation({
+          cardId: card._id,
+          groupId: droppedOnCard.groupId,
+        });
+
+        // Position near the target card
+        await updateCardMutation({
+          cardId: card._id,
+          position: { x: droppedOnCard.position.x + 15, y: droppedOnCard.position.y + 15 },
+        });
+      } else {
+        // Create new group with both cards
+        const encryptedData = encryption.encrypt({ name: "" }); // Empty name by default
+
+        const groupId = await createGroupMutation({
+          sessionId: sessionId!,
+          encryptedData,
+          position: droppedOnCard.position,
+          cardIds: [droppedOnCard._id, card._id],
+        });
+
+        // Position cards in the group
+        await updateCardMutation({
+          cardId: card._id,
+          position: { x: droppedOnCard.position.x + 15, y: droppedOnCard.position.y + 15 },
+        });
+      }
+    } else {
+      // Just update position
+      await updateCardMutation({
+        cardId: card._id,
+        position: { x: newX, y: newY },
+      });
+    }
 
     setActiveId(null);
   };
@@ -251,6 +282,54 @@ export default function Board({ encryption }: BoardProps) {
             zIndex: 0,
           }}
         />
+
+        {/* Group indicators (behind cards) */}
+        {groups.map((group) => {
+          const groupCards = cards.filter((c) => c.groupId === group._id);
+          if (groupCards.length === 0) return null;
+
+          // Calculate bounds of all cards in group
+          const minX = Math.min(...groupCards.map((c) => c.position.x));
+          const minY = Math.min(...groupCards.map((c) => c.position.y));
+          const maxX = Math.max(...groupCards.map((c) => c.position.x + 280));
+          const maxY = Math.max(...groupCards.map((c) => c.position.y + 140));
+
+          return (
+            <div
+              key={group._id}
+              style={{
+                position: "absolute",
+                left: minX - 12,
+                top: minY - 12,
+                width: maxX - minX + 24,
+                height: maxY - minY + 24,
+                border: "2px dashed #6366f1",
+                borderRadius: "16px",
+                backgroundColor: "rgba(99, 102, 241, 0.05)",
+                pointerEvents: "none",
+                zIndex: 0,
+              }}
+            >
+              {group.name && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: -8,
+                    left: 12,
+                    background: "#6366f1",
+                    color: "#fff",
+                    padding: "4px 12px",
+                    borderRadius: "12px",
+                    fontSize: "12px",
+                    fontWeight: "700",
+                  }}
+                >
+                  {group.name}
+                </div>
+              )}
+            </div>
+          );
+        })}
 
         {/* Cards canvas */}
         <DndContext
