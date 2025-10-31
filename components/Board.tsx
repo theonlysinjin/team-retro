@@ -31,17 +31,14 @@ export default function Board({ encryption }: BoardProps) {
   const createCardMutation = useMutation(api.cards.createCard);
   const updateCardMutation = useMutation(api.cards.updateCard);
 
-  // Auto-scroll to center on first load
+  // Center canvas on first load
   useEffect(() => {
-    if (containerRef.current && !hasScrolled) {
-      const container = containerRef.current;
-      // Center the swimlanes (3000 - 720) / 2 = 1140
-      container.scrollLeft = 1140;
-      // Center vertically (3000 - 1280) / 2 = 860
-      container.scrollTop = 860;
+    if (!hasScrolled) {
+      // Start centered on swimlanes
+      setCanvasOffset({ x: window.innerWidth / 2 - 640, y: window.innerHeight / 2 - 640 });
       setHasScrolled(true);
     }
-  }, [hasScrolled]);
+  }, [hasScrolled, setCanvasOffset]);
 
   // Handle double-click to create card
   const handleDoubleClick = async (e: React.MouseEvent<HTMLDivElement>) => {
@@ -147,9 +144,12 @@ export default function Board({ encryption }: BoardProps) {
   // Handle canvas pan
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
+    // Don't pan if clicking on a card
     if (target.closest('[data-card]')) return;
+    // Don't pan if user is dragging a card
+    if (activeId) return;
 
-    // Implement panning
+    e.preventDefault();
     let startX = e.clientX;
     let startY = e.clientY;
     const startOffsetX = canvasOffset.x;
@@ -170,13 +170,21 @@ export default function Board({ encryption }: BoardProps) {
     document.addEventListener('mouseup', handleMouseUp);
   };
 
-  // Handle zoom
+  // Handle pan with mouse wheel or zoom with Ctrl+wheel
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     if (e.ctrlKey || e.metaKey) {
+      // Zoom
       e.preventDefault();
       const delta = -e.deltaY * 0.001;
       const newZoom = Math.max(0.5, Math.min(2, canvasZoom + delta));
       setCanvasZoom(newZoom);
+    } else {
+      // Pan
+      e.preventDefault();
+      setCanvasOffset({
+        x: canvasOffset.x - e.deltaX,
+        y: canvasOffset.y - e.deltaY,
+      });
     }
   };
 
@@ -190,29 +198,30 @@ export default function Board({ encryption }: BoardProps) {
       style={{
         flex: 1,
         position: "relative",
-        overflow: "auto",
+        overflow: "hidden",
         backgroundColor: "#f9fafb",
       }}
+      onDoubleClick={handleDoubleClick}
+      onMouseDown={handleMouseDown}
+      onWheel={handleWheel}
     >
       <div
         ref={canvasRef}
         style={{
-          position: "relative",
-          width: "3000px",
-          height: "3000px",
+          position: "absolute",
+          width: "100%",
+          height: "100%",
+          transform: `translate(${canvasOffset.x}px, ${canvasOffset.y}px)`,
           cursor: "grab",
         }}
-        onDoubleClick={handleDoubleClick}
-        onMouseDown={handleMouseDown}
       >
         {/* Centered swimlanes background */}
         <div
           style={{
             position: "absolute",
-            left: "50%",
-            top: "50%",
-            transform: "translate(-50%, -50%)",
-            width: "720px",
+            left: 0,
+            top: 0,
+            width: "1280px",
             height: "1280px",
             backgroundImage: "url(/team-retro/swimlanes.svg)",
             backgroundSize: "cover",
@@ -231,9 +240,7 @@ export default function Board({ encryption }: BoardProps) {
         >
           <div
             style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
+              position: "relative",
               width: "100%",
               height: "100%",
             }}
