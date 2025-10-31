@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { View, Text, StyleSheet, Platform } from "react-native";
 import { DndContext, DragEndEvent, DragOverlay, closestCenter } from "@dnd-kit/core";
 import { useMutation } from "convex/react";
@@ -15,7 +15,9 @@ interface BoardProps {
 
 export default function Board({ encryption }: BoardProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [hasScrolled, setHasScrolled] = useState(false);
 
   const sessionId = useRetroStore((state) => state.sessionId);
   const userName = useRetroStore((state) => state.userName);
@@ -28,6 +30,18 @@ export default function Board({ encryption }: BoardProps) {
 
   const createCardMutation = useMutation(api.cards.createCard);
   const updateCardMutation = useMutation(api.cards.updateCard);
+
+  // Auto-scroll to center on first load
+  useEffect(() => {
+    if (containerRef.current && !hasScrolled) {
+      const container = containerRef.current;
+      // Center the swimlanes (3000 - 720) / 2 = 1140
+      container.scrollLeft = 1140;
+      // Center vertically (3000 - 1280) / 2 = 860
+      container.scrollTop = 860;
+      setHasScrolled(true);
+    }
+  }, [hasScrolled]);
 
   // Handle double-click to create card
   const handleDoubleClick = async (e: React.MouseEvent<HTMLDivElement>) => {
@@ -172,49 +186,41 @@ export default function Board({ encryption }: BoardProps) {
 
   return (
     <div
+      ref={containerRef}
       style={{
         flex: 1,
         position: "relative",
         overflow: "auto",
-        backgroundColor: "#f3f4f6",
+        backgroundColor: "#f9fafb",
       }}
     >
       <div
         ref={canvasRef}
         style={{
           position: "relative",
-          width: "max(100%, 2000px)",
-          height: "max(100%, 2000px)",
+          width: "3000px",
+          height: "3000px",
           cursor: "grab",
         }}
         onDoubleClick={handleDoubleClick}
         onMouseDown={handleMouseDown}
       >
-        {/* Fixed-size swimlanes centered in viewport */}
+        {/* Centered swimlanes background */}
         <div
           style={{
-            position: "sticky",
-            top: 0,
+            position: "absolute",
             left: "50%",
-            transform: "translateX(-50%)",
+            top: "50%",
+            transform: "translate(-50%, -50%)",
             width: "720px",
             height: "1280px",
+            backgroundImage: "url(/team-retro/swimlanes.svg)",
+            backgroundSize: "cover",
+            backgroundRepeat: "no-repeat",
             pointerEvents: "none",
             zIndex: 0,
           }}
-        >
-          <View style={styles.laneGuides}>
-            <View style={[styles.lane, styles.laneWell]}>
-              <Text style={styles.laneLabel}>😊 What Went Well</Text>
-            </View>
-            <View style={[styles.lane, styles.laneBadly]}>
-              <Text style={styles.laneLabel}>😞 What Needs Work</Text>
-            </View>
-            <View style={[styles.lane, styles.laneTodo]}>
-              <Text style={styles.laneLabel}>✅ Action Items</Text>
-            </View>
-          </View>
-        </div>
+        />
 
         {/* Cards canvas */}
         <DndContext
@@ -294,34 +300,6 @@ export default function Board({ encryption }: BoardProps) {
 }
 
 const styles = StyleSheet.create({
-  laneGuides: {
-    flexDirection: "row",
-    height: "100%",
-    width: "100%",
-  },
-  lane: {
-    width: 240,
-    borderRightWidth: 2,
-    borderRightColor: "rgba(0, 0, 0, 0.08)",
-    paddingTop: 80,
-    paddingHorizontal: 12,
-  },
-  laneWell: {
-    backgroundColor: "rgba(209, 250, 229, 0.1)",
-  },
-  laneBadly: {
-    backgroundColor: "rgba(254, 226, 226, 0.1)",
-  },
-  laneTodo: {
-    backgroundColor: "rgba(219, 234, 254, 0.1)",
-    borderRightWidth: 0,
-  },
-  laneLabel: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "rgba(0, 0, 0, 0.15)",
-    textAlign: "center",
-  },
   instructionText: {
     fontSize: 20,
     fontWeight: "600",
