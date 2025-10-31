@@ -80,7 +80,6 @@ export interface RetroState {
 
   // Canvas state
   canvasOffset: { x: number; y: number };
-  canvasZoom: number;
 
   // Actions
   initialize: (sessionId: Id<"sessions">, sessionCode: string, isHost: boolean, userName: string) => void;
@@ -95,6 +94,5 @@ export interface RetroState {
   removeVoteOptimistic: (cardId: Id<"cards">, userName: string) => void;
   // Canvas
   setCanvasOffset: (offset: { x: number; y: number }) => void;
-  setCanvasZoom: (zoom: number) => void;
   reset: () => void;
 }

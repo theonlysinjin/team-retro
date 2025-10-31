@@ -24,7 +24,9 @@ interface CardProps {
   encryption: SessionEncryption;
 }
 
-export default function Card({ card, votes, hasVoted, voters, encryption }: CardProps) {
+// Memoize Card component to prevent unnecessary re-renders
+// Re-render only when props actually change (not when parent re-renders)
+const Card = React.memo(function Card({ card, votes, hasVoted, voters, encryption }: CardProps) {
   // Auto-edit if card has placeholder text
   const isPlaceholder = [
     "What's on your mind?",
@@ -62,7 +64,8 @@ export default function Card({ card, votes, hasVoted, voters, encryption }: Card
     id: card._id,
   });
 
-  // Don't apply transform - we handle position via absolute positioning
+  // Hide the source card during drag - DragOverlay shows the visual feedback
+  // This prevents coordinate transformation issues while providing smooth drag UX
   const style = undefined;
 
   const handleSave = async () => {
@@ -151,7 +154,7 @@ export default function Card({ card, votes, hasVoted, voters, encryption }: Card
       <div ref={setNodeRef} style={style}>
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: isDragging ? 0.5 : 1 }}
+          animate={{ scale: 1, opacity: isDragging ? 0 : 1 }}
           transition={{ type: "spring", stiffness: 300, damping: 25 }}
         >
           <View
@@ -272,7 +275,9 @@ export default function Card({ card, votes, hasVoted, voters, encryption }: Card
   }
 
   return null;
-}
+});
+
+export default Card;
 
 const styles = StyleSheet.create({
   card: {

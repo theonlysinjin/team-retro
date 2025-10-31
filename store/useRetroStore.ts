@@ -21,7 +21,6 @@ const useRetroStore = create<RetroState>((set) => ({
 
   // Canvas state
   canvasOffset: { x: 0, y: 0 },
-  canvasZoom: 1,
 
   // Actions
   initialize: (sessionId, sessionCode, isHost, userName) => {
@@ -82,7 +81,6 @@ const useRetroStore = create<RetroState>((set) => ({
   },
 
   setCanvasOffset: (offset) => set({ canvasOffset: offset }),
-  setCanvasZoom: (zoom) => set({ canvasZoom: zoom }),
 
   reset: () => {
     set({
@@ -95,7 +93,6 @@ const useRetroStore = create<RetroState>((set) => ({
       groups: [],
       presence: [],
       canvasOffset: { x: 0, y: 0 },
-      canvasZoom: 1,
     });
   },
 }));

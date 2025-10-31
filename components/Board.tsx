@@ -1,6 +1,47 @@
+/**
+ * Board Component - Infinite Canvas with Pan & Drag-and-Drop
+ *
+ * COORDINATE SYSTEM OVERVIEW:
+ * ===========================
+ *
+ * 1. Viewport Coordinates:
+ *    - Raw mouse position (clientX, clientY)
+ *    - Relative to browser window
+ *
+ * 2. Container Coordinates:
+ *    - Viewport coords minus container offset
+ *    - Relative to the Board's <div> container
+ *
+ * 3. Canvas Coordinates (PRIMARY):
+ *    - Container coords minus canvasOffset
+ *    - This is where card.position is stored
+ *    - Cards are positioned absolutely within the transformed canvas
+ *
+ * TRANSFORM HIERARCHY:
+ * ====================
+ * Container (Board div)
+ *   └─> Canvas (transformed by canvasOffset)
+ *       └─> Cards (positioned absolutely at card.position)
+ *
+ * DRAG & DROP:
+ * ============
+ * - @dnd-kit provides delta in viewport/screen coordinates
+ * - Delta represents pixel movement of mouse
+ * - Since cards move 1:1 with mouse, delta can be applied directly to card.position
+ * - During drag: source card hidden (opacity: 0), DragOverlay shows visual feedback
+ * - On drop: card.position updated with delta, then synced to Convex
+ *
+ * PAN:
+ * ====
+ * - Wheel/trackpad panning updates canvasOffset
+ * - Mouse drag panning also updates canvasOffset
+ * - Canvas transform applied as: translate(canvasOffset.x, canvasOffset.y)
+ */
+
 import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { View, Text, StyleSheet, Platform } from "react-native";
 import { DndContext, DragEndEvent, DragOverlay, closestCenter } from "@dnd-kit/core";
+import { motion } from "framer-motion";
 import { useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import useRetroStore from "../store/useRetroStore";
@@ -25,9 +66,7 @@ export default function Board({ encryption }: BoardProps) {
   const votes = useRetroStore((state) => state.votes);
   const groups = useRetroStore((state) => state.groups);
   const canvasOffset = useRetroStore((state) => state.canvasOffset);
-  const canvasZoom = useRetroStore((state) => state.canvasZoom);
   const setCanvasOffset = useRetroStore((state) => state.setCanvasOffset);
-  const setCanvasZoom = useRetroStore((state) => state.setCanvasZoom);
 
   const createCardMutation = useMutation(api.cards.createCard);
   const updateCardMutation = useMutation(api.cards.updateCard);
@@ -43,31 +82,23 @@ export default function Board({ encryption }: BoardProps) {
     }
   }, [hasScrolled, setCanvasOffset]);
 
-  // Handle wheel with native listener to avoid passive event issues
+  // Handle wheel with native listener for pan (removed zoom functionality)
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const handleWheelNative = (e: WheelEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        // Zoom
-        e.preventDefault();
-        const delta = -e.deltaY * 0.001;
-        const newZoom = Math.max(0.5, Math.min(2, canvasZoom + delta));
-        setCanvasZoom(newZoom);
-      } else {
-        // Pan
-        e.preventDefault();
-        setCanvasOffset({
-          x: canvasOffset.x - e.deltaX,
-          y: canvasOffset.y - e.deltaY,
-        });
-      }
+      // Pan with trackpad/mouse wheel
+      e.preventDefault();
+      setCanvasOffset({
+        x: canvasOffset.x - e.deltaX,
+        y: canvasOffset.y - e.deltaY,
+      });
     };
 
     container.addEventListener('wheel', handleWheelNative, { passive: false });
     return () => container.removeEventListener('wheel', handleWheelNative);
-  }, [canvasOffset, canvasZoom, setCanvasOffset, setCanvasZoom]);
+  }, [canvasOffset, setCanvasOffset]);
 
   // Handle double-click to create card
   const handleDoubleClick = async (e: React.MouseEvent<HTMLDivElement>) => {
@@ -144,32 +175,84 @@ export default function Board({ encryption }: BoardProps) {
       return;
     }
 
+    // Calculate new position in canvas coordinates
+    // Delta from @dnd-kit is in viewport/screen coordinates, which matches
+    // our canvas coordinate system since cards move 1:1 with mouse movement
     const newX = card.position.x + delta.x;
     const newY = card.position.y + delta.y;
 
-    // Check if dropped on another card (within 80px)
+    console.log("Drag end:", {
+      cardId: card._id,
+      oldPosition: card.position,
+      delta,
+      newPosition: { x: newX, y: newY },
+      canvasOffset,
+    });
+
+    // Check if dropped on another card using bounding box overlap detection
+    // Card dimensions: ~280px wide × ~140px tall (see Card.tsx styles)
+    const CARD_WIDTH = 280;
+    const CARD_HEIGHT = 140;
+    const OVERLAP_THRESHOLD = 0.3; // 30% overlap required to group
+
     const droppedOnCard = cards.find((c) => {
       if (c._id === card._id) return false;
-      const dx = Math.abs(c.position.x - newX);
-      const dy = Math.abs(c.position.y - newY);
-      return dx < 80 && dy < 80;
+
+      // Calculate bounding boxes
+      const cardA = {
+        left: newX,
+        right: newX + CARD_WIDTH,
+        top: newY,
+        bottom: newY + CARD_HEIGHT,
+      };
+
+      const cardB = {
+        left: c.position.x,
+        right: c.position.x + CARD_WIDTH,
+        top: c.position.y,
+        bottom: c.position.y + CARD_HEIGHT,
+      };
+
+      // Check for overlap
+      const overlapX = Math.max(0, Math.min(cardA.right, cardB.right) - Math.max(cardA.left, cardB.left));
+      const overlapY = Math.max(0, Math.min(cardA.bottom, cardB.bottom) - Math.max(cardA.top, cardB.top));
+      const overlapArea = overlapX * overlapY;
+      const cardArea = CARD_WIDTH * CARD_HEIGHT;
+
+      // Group if overlap is at least 30% of a card's area
+      return overlapArea >= cardArea * OVERLAP_THRESHOLD;
     });
 
     if (droppedOnCard) {
       console.log("Dropped on card:", droppedOnCard._id);
 
+      // Calculate smart position for the dropped card within the group
+      // Uses a cascading stack effect: each card offset by 20px right and 20px down
+      const STACK_OFFSET_X = 20;
+      const STACK_OFFSET_Y = 20;
+
       // Check if target card already has a group
       if (droppedOnCard.groupId) {
         // Add this card to existing group
+        const group = groups.find((g) => g._id === droppedOnCard.groupId);
+        const groupCards = cards.filter((c) => c.groupId === droppedOnCard.groupId);
+
+        // Find the next available position in the stack
+        // Position is based on the number of cards already in the group
+        const stackIndex = groupCards.length; // This card will be the next in the stack
+        const baseCard = groupCards[0] || droppedOnCard; // Use first card as base
+
         await addCardToGroupMutation({
           cardId: card._id,
           groupId: droppedOnCard.groupId,
         });
 
-        // Position near the target card
         await updateCardMutation({
           cardId: card._id,
-          position: { x: droppedOnCard.position.x + 15, y: droppedOnCard.position.y + 15 },
+          position: {
+            x: baseCard.position.x + stackIndex * STACK_OFFSET_X,
+            y: baseCard.position.y + stackIndex * STACK_OFFSET_Y,
+          },
         });
       } else {
         // Create new group with both cards
@@ -182,10 +265,13 @@ export default function Board({ encryption }: BoardProps) {
           cardIds: [droppedOnCard._id, card._id],
         });
 
-        // Position cards in the group
+        // Position second card with stack offset from first card
         await updateCardMutation({
           cardId: card._id,
-          position: { x: droppedOnCard.position.x + 15, y: droppedOnCard.position.y + 15 },
+          position: {
+            x: droppedOnCard.position.x + STACK_OFFSET_X,
+            y: droppedOnCard.position.y + STACK_OFFSET_Y,
+          },
         });
       }
     } else {
@@ -289,39 +375,62 @@ export default function Board({ encryption }: BoardProps) {
           if (groupCards.length === 0) return null;
 
           // Calculate bounds of all cards in group
+          const CARD_WIDTH = 280;
+          const CARD_HEIGHT = 140;
           const minX = Math.min(...groupCards.map((c) => c.position.x));
           const minY = Math.min(...groupCards.map((c) => c.position.y));
-          const maxX = Math.max(...groupCards.map((c) => c.position.x + 280));
-          const maxY = Math.max(...groupCards.map((c) => c.position.y + 140));
+          const maxX = Math.max(...groupCards.map((c) => c.position.x + CARD_WIDTH));
+          const maxY = Math.max(...groupCards.map((c) => c.position.y + CARD_HEIGHT));
 
           return (
             <div
               key={group._id}
               style={{
                 position: "absolute",
-                left: minX - 12,
-                top: minY - 12,
-                width: maxX - minX + 24,
-                height: maxY - minY + 24,
-                border: "2px dashed #6366f1",
-                borderRadius: "16px",
-                backgroundColor: "rgba(99, 102, 241, 0.05)",
+                left: minX - 16,
+                top: minY - 16,
+                width: maxX - minX + 32,
+                height: maxY - minY + 32,
+                border: "3px dashed #8b5cf6",
+                borderRadius: "20px",
+                backgroundColor: "rgba(139, 92, 246, 0.08)",
                 pointerEvents: "none",
                 zIndex: 0,
+                boxShadow: "0 4px 12px rgba(139, 92, 246, 0.15)",
               }}
             >
+              {/* Card count badge */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: -12,
+                  right: 12,
+                  background: "#8b5cf6",
+                  color: "#fff",
+                  padding: "4px 10px",
+                  borderRadius: "12px",
+                  fontSize: "11px",
+                  fontWeight: "700",
+                  boxShadow: "0 2px 8px rgba(139, 92, 246, 0.3)",
+                }}
+              >
+                {groupCards.length} {groupCards.length === 1 ? "card" : "cards"}
+              </div>
+
+              {/* Group name (if set) */}
               {group.name && (
                 <div
                   style={{
                     position: "absolute",
-                    top: -8,
+                    top: -12,
                     left: 12,
-                    background: "#6366f1",
+                    background: "#8b5cf6",
                     color: "#fff",
                     padding: "4px 12px",
                     borderRadius: "12px",
                     fontSize: "12px",
                     fontWeight: "700",
+                    boxShadow: "0 2px 8px rgba(139, 92, 246, 0.3)",
                   }}
                 >
                   {group.name}
@@ -351,13 +460,22 @@ export default function Board({ encryption }: BoardProps) {
             const voters = cardVotes.map((v) => v.userName);
 
             return (
-              <div
+              <motion.div
                 key={`${card._id}-${card.updatedAt}`}
                 data-card
                 style={{
                   position: "absolute",
+                }}
+                initial={false}
+                animate={{
                   left: card.position.x,
                   top: card.position.y,
+                }}
+                transition={{
+                  type: "spring",
+                  stiffness: 300,
+                  damping: 30,
+                  mass: 0.8,
                 }}
               >
                 <Card
@@ -367,7 +485,7 @@ export default function Board({ encryption }: BoardProps) {
                   voters={voters}
                   encryption={encryption}
                 />
-              </div>
+              </motion.div>
             );
           })}
         </div>
