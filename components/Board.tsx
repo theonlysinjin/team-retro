@@ -40,6 +40,32 @@ export default function Board({ encryption }: BoardProps) {
     }
   }, [hasScrolled, setCanvasOffset]);
 
+  // Handle wheel with native listener to avoid passive event issues
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheelNative = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        // Zoom
+        e.preventDefault();
+        const delta = -e.deltaY * 0.001;
+        const newZoom = Math.max(0.5, Math.min(2, canvasZoom + delta));
+        setCanvasZoom(newZoom);
+      } else {
+        // Pan
+        e.preventDefault();
+        setCanvasOffset({
+          x: canvasOffset.x - e.deltaX,
+          y: canvasOffset.y - e.deltaY,
+        });
+      }
+    };
+
+    container.addEventListener('wheel', handleWheelNative, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheelNative);
+  }, [canvasOffset, canvasZoom, setCanvasOffset, setCanvasZoom]);
+
   // Handle double-click to create card
   const handleDoubleClick = async (e: React.MouseEvent<HTMLDivElement>) => {
     if (!sessionId || !userName) {
@@ -141,23 +167,36 @@ export default function Board({ encryption }: BoardProps) {
     setActiveId(null);
   };
 
-  // Handle canvas pan
+  // Handle canvas clicks - blur any active inputs or start panning
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
+
     // Don't pan if clicking on a card
     if (target.closest('[data-card]')) return;
     // Don't pan if user is dragging a card
     if (activeId) return;
+
+    // Blur any focused input (saves card edits)
+    const activeElement = document.activeElement as HTMLElement;
+    if (activeElement && activeElement.tagName === 'TEXTAREA') {
+      activeElement.blur();
+      // Don't start panning if we just blurred an input
+      return;
+    }
 
     e.preventDefault();
     let startX = e.clientX;
     let startY = e.clientY;
     const startOffsetX = canvasOffset.x;
     const startOffsetY = canvasOffset.y;
+    let hasMoved = false;
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const dx = moveEvent.clientX - startX;
       const dy = moveEvent.clientY - startY;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+        hasMoved = true;
+      }
       setCanvasOffset({ x: startOffsetX + dx, y: startOffsetY + dy });
     };
 
@@ -168,24 +207,6 @@ export default function Board({ encryption }: BoardProps) {
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-  };
-
-  // Handle pan with mouse wheel or zoom with Ctrl+wheel
-  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    if (e.ctrlKey || e.metaKey) {
-      // Zoom
-      e.preventDefault();
-      const delta = -e.deltaY * 0.001;
-      const newZoom = Math.max(0.5, Math.min(2, canvasZoom + delta));
-      setCanvasZoom(newZoom);
-    } else {
-      // Pan
-      e.preventDefault();
-      setCanvasOffset({
-        x: canvasOffset.x - e.deltaX,
-        y: canvasOffset.y - e.deltaY,
-      });
-    }
   };
 
   const activeCard = activeId ? cards.find((c) => c._id === activeId) : null;
@@ -203,7 +224,6 @@ export default function Board({ encryption }: BoardProps) {
       }}
       onDoubleClick={handleDoubleClick}
       onMouseDown={handleMouseDown}
-      onWheel={handleWheel}
     >
       <div
         ref={canvasRef}
