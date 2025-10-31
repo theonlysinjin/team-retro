@@ -7,11 +7,14 @@ import CryptoJS from "crypto-js";
 
 export class SessionEncryption {
   private sessionKey: string;
+  public sessionCode: string;
 
   constructor(sessionCode: string) {
     // Derive a session key from the session code
     // In production, this could be user-provided password
+    this.sessionCode = sessionCode;
     this.sessionKey = CryptoJS.SHA256(sessionCode).toString();
+    console.log("Encryption initialized for session:", sessionCode, "key hash:", this.sessionKey.substring(0, 16) + "...");
   }
 
   /**
@@ -20,6 +23,7 @@ export class SessionEncryption {
   encrypt(data: any): string {
     const jsonString = JSON.stringify(data);
     const encrypted = CryptoJS.AES.encrypt(jsonString, this.sessionKey).toString();
+    console.log("Encrypting data:", jsonString, "→", encrypted.substring(0, 40) + "...");
     return encrypted;
   }
 
@@ -30,9 +34,11 @@ export class SessionEncryption {
     try {
       const decrypted = CryptoJS.AES.decrypt(encryptedData, this.sessionKey);
       const jsonString = decrypted.toString(CryptoJS.enc.Utf8);
-      return JSON.parse(jsonString);
+      const result = JSON.parse(jsonString);
+      console.log("Decrypted:", encryptedData.substring(0, 40) + "...", "→", jsonString);
+      return result;
     } catch (error) {
-      console.error("Decryption failed:", error);
+      console.error("Decryption failed for:", encryptedData.substring(0, 40), error);
       return null;
     }
   }

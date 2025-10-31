@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -44,7 +44,13 @@ export default function Card({ card, votes, hasVoted, voters, encryption }: Card
   const userName = useRetroStore((state) => state.userName);
   const addVoteOptimistic = useRetroStore((state) => state.addVoteOptimistic);
   const removeVoteOptimistic = useRetroStore((state) => state.removeVoteOptimistic);
-  const updateCardContent = useRetroStore((state) => state.updateCardContent);
+
+  // Sync editContent when card.content changes (from Convex updates)
+  useEffect(() => {
+    if (!isEditing) {
+      setEditContent(card.content);
+    }
+  }, [card.content, isEditing]);
 
   const updateCardMutation = useMutation(api.cards.updateCard);
   const deleteCardMutation = useMutation(api.cards.deleteCard);
@@ -61,12 +67,9 @@ export default function Card({ card, votes, hasVoted, voters, encryption }: Card
       }
     : undefined;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (editContent.trim() && editContent !== card.content) {
       console.log("Saving card:", card._id, "new content:", editContent.trim());
-
-      // Optimistic update - show new content immediately
-      updateCardContent(card._id, editContent.trim(), card.color);
 
       const encryptedData = encryptCardData(
         editContent.trim(),
@@ -77,25 +80,23 @@ export default function Card({ card, votes, hasVoted, voters, encryption }: Card
 
       console.log("Encrypted update:", encryptedData.substring(0, 30) + "...");
 
-      // Sync to Convex in background
-      updateCardMutation({
-        cardId: card._id,
-        encryptedData,
-      }).then(() => {
+      // Wait for Convex to confirm - it's fast enough
+      try {
+        await updateCardMutation({
+          cardId: card._id,
+          encryptedData,
+        });
         console.log("Card saved successfully to Convex");
-      }).catch((error) => {
+      } catch (error) {
         console.error("Failed to save card:", error);
-        // Content will be corrected on next sync
-      });
+        alert("Failed to save card: " + error);
+      }
     }
     setIsEditing(false);
   };
 
-  const handleColorChange = (color: string) => {
+  const handleColorChange = async (color: string) => {
     console.log("Changing card color to:", color);
-
-    // Optimistic update
-    updateCardContent(card._id, card.content, color);
 
     const encryptedData = encryptCardData(
       card.content,
@@ -104,15 +105,16 @@ export default function Card({ card, votes, hasVoted, voters, encryption }: Card
       encryption
     );
 
-    // Sync to Convex
-    updateCardMutation({
-      cardId: card._id,
-      encryptedData,
-    }).then(() => {
+    // Wait for Convex
+    try {
+      await updateCardMutation({
+        cardId: card._id,
+        encryptedData,
+      });
       console.log("Color updated in Convex");
-    }).catch((error) => {
+    } catch (error) {
       console.error("Failed to update color:", error);
-    });
+    }
 
     setShowColorPicker(false);
   };
