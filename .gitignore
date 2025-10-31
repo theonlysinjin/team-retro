@@ -34,8 +34,8 @@ yarn-error.*
 .env*.local
 .env
 
-# Convex
-convex/_generated/
+# Convex (keep generated files for CI)
+# convex/_generated/
 
 # typescript
 *.tsbuildinfo
