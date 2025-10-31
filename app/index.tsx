@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -22,6 +22,13 @@ export default function Home() {
   const [error, setError] = useState("");
 
   const initialize = useRetroStore((state) => state.initialize);
+
+  // Sync local state with stored name when it loads from localStorage
+  useEffect(() => {
+    if (storedUserName && !userName) {
+      setUserNameLocal(storedUserName);
+    }
+  }, [storedUserName]);
 
   const createSessionMutation = useMutation(api.sessions.createSession);
   const joinSessionMutation = useMutation(api.sessions.joinSession);
@@ -107,12 +114,17 @@ export default function Home() {
         </Text>
 
         <View style={styles.form}>
-          <Text style={styles.label}>Your Name</Text>
+          <View style={styles.nameHeader}>
+            <Text style={styles.label}>Your Name</Text>
+            {storedUserName && userName === storedUserName && (
+              <Text style={styles.welcomeBack}>Welcome back!</Text>
+            )}
+          </View>
           <TextInput
             style={styles.input}
             value={userName}
             onChangeText={setUserNameLocal}
-            placeholder="Enter your name"
+            placeholder={storedUserName ? "Your name (editable)" : "Enter your name"}
             placeholderTextColor="#9ca3af"
             autoCapitalize="words"
             editable={!loading}
@@ -217,11 +229,25 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
+  nameHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
   label: {
     fontSize: 14,
     fontWeight: "600",
     color: "#374151",
-    marginBottom: 8,
+  },
+  welcomeBack: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#10b981",
+    backgroundColor: "#d1fae5",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
   },
   input: {
     borderWidth: 1,

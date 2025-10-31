@@ -9,6 +9,7 @@
  */
 
 import type * as cards from "../cards.js";
+import type * as groups from "../groups.js";
 import type * as sessions from "../sessions.js";
 
 import type {
@@ -27,6 +28,7 @@ import type {
  */
 declare const fullApi: ApiFromModules<{
   cards: typeof cards;
+  groups: typeof groups;
   sessions: typeof sessions;
 }>;
 declare const fullApiWithMounts: typeof fullApi;

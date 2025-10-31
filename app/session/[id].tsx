@@ -33,6 +33,13 @@ export default function Session() {
 
   const joinSessionMutation = useMutation(api.sessions.joinSession);
 
+  // Sync nameInput with stored name when it loads from localStorage
+  useEffect(() => {
+    if (storedUserName && !nameInput) {
+      setNameInput(storedUserName);
+    }
+  }, [storedUserName]);
+
   // Get session by code
   const sessionByCode = useQuery(
     api.sessions.getSessionByCode,
@@ -131,12 +138,17 @@ export default function Session() {
               </Text>
             )}
 
-            <Text style={styles.label}>Your Name</Text>
+            <View style={styles.nameHeader}>
+              <Text style={styles.label}>Your Name</Text>
+              {storedUserName && nameInput === storedUserName && (
+                <Text style={styles.welcomeBack}>Welcome back!</Text>
+              )}
+            </View>
             <TextInput
               style={styles.input}
               value={nameInput}
               onChangeText={setNameInput}
-              placeholder="Enter your name"
+              placeholder={storedUserName ? "Your name (editable)" : "Enter your name"}
               placeholderTextColor="#9ca3af"
               autoCapitalize="words"
               autoFocus
@@ -254,12 +266,26 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontWeight: "600",
   },
+  nameHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 24,
+    marginBottom: 8,
+  },
   label: {
     fontSize: 14,
     fontWeight: "600",
     color: "#374151",
-    marginTop: 24,
-    marginBottom: 8,
+  },
+  welcomeBack: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#10b981",
+    backgroundColor: "#d1fae5",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
   },
   input: {
     borderWidth: 1,

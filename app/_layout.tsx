@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { Platform } from "react-native";
+import AppHeader from "../components/AppHeader";
 
 const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL || "");
 
@@ -27,17 +28,11 @@ function RootLayoutContent() {
   return (
     <Stack
       screenOptions={{
-        headerStyle: {
-          backgroundColor: "#6366f1",
-        },
-        headerTintColor: "#fff",
-        headerTitleStyle: {
-          fontWeight: "bold",
-        },
+        header: () => <AppHeader />,
       }}
     >
-      <Stack.Screen name="index" options={{ title: "Team Retro" }} />
-      <Stack.Screen name="session/[id]" options={{ title: "Team Retro" }} />
+      <Stack.Screen name="index" />
+      <Stack.Screen name="session/[id]" />
     </Stack>
   );
 }

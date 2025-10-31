@@ -78,3 +78,30 @@ export const addCardToGroup = mutation({
     await ctx.db.patch(args.cardId, { groupId: args.groupId });
   },
 });
+
+export const removeCardFromGroup = mutation({
+  args: {
+    cardId: v.id("cards"),
+  },
+  handler: async (ctx, args) => {
+    const card = await ctx.db.get(args.cardId);
+    if (!card || !card.groupId) return;
+
+    const groupId = card.groupId;
+
+    // Remove card from group
+    await ctx.db.patch(args.cardId, { groupId: undefined });
+
+    // Check how many cards remain in the group
+    const remainingCards = await ctx.db
+      .query("cards")
+      .withIndex("by_group", (q) => q.eq("groupId", groupId))
+      .collect();
+
+    // If only 1 card left, remove it from group and delete the group
+    if (remainingCards.length === 1) {
+      await ctx.db.patch(remainingCards[0]._id, { groupId: undefined });
+      await ctx.db.delete(groupId);
+    }
+  },
+});

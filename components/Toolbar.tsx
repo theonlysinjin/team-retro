@@ -7,12 +7,15 @@ import {
   TextInput,
   Modal,
   Platform,
+  useWindowDimensions,
 } from "react-native";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 import useRetroStore from "../store/useRetroStore";
 import { DEFAULT_COLOR, CARD_COLORS } from "../utils/colors";
 import { SessionEncryption, encryptCardData } from "../utils/encryption";
+import { useUserName } from "../hooks/useUser";
+import Toast from "./Toast";
 
 interface ToolbarProps {
   sessionCode: string;
@@ -23,15 +26,41 @@ export default function Toolbar({ sessionCode, encryption }: ToolbarProps) {
   const [showAddCard, setShowAddCard] = useState(false);
   const [cardContent, setCardContent] = useState("");
   const [selectedColor, setSelectedColor] = useState(DEFAULT_COLOR.value);
-  const [showHostLink, setShowHostLink] = useState(false);
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [newUserName, setNewUserName] = useState("");
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastVisible, setToastVisible] = useState(false);
+  const { width } = useWindowDimensions();
 
   const sessionId = useRetroStore((state) => state.sessionId);
   const userName = useRetroStore((state) => state.userName);
   const presence = useRetroStore((state) => state.presence);
   const isHost = useRetroStore((state) => state.isHost);
+  const initialize = useRetroStore((state) => state.initialize);
+  const { setUserName: persistUserName } = useUserName();
+
+  // Determine if we should use compact layout (for smaller screens)
+  const isCompact = width < 768;
 
   const createCardMutation = useMutation(api.cards.createCard);
   const session = useQuery(api.sessions.getSessionByCode, { code: sessionCode });
+
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    setToastVisible(true);
+  };
+
+  const handleRename = () => {
+    if (!newUserName.trim()) return;
+
+    // Update in store and localStorage
+    initialize(sessionId, useRetroStore.getState().sessionCode, isHost, newUserName.trim());
+    persistUserName(newUserName.trim());
+
+    setShowRenameModal(false);
+    setNewUserName("");
+    showToast("Name updated!");
+  };
 
   const handleAddCard = async () => {
     if (!cardContent.trim() || !sessionId || !userName) {
@@ -76,7 +105,7 @@ export default function Toolbar({ sessionCode, encryption }: ToolbarProps) {
     if (Platform.OS === "web") {
       const link = `${window.location.origin}/team-retro/session/${sessionCode}`;
       navigator.clipboard.writeText(link);
-      alert("Session link copied!");
+      showToast("📋 Session link copied!");
     }
   };
 
@@ -84,62 +113,134 @@ export default function Toolbar({ sessionCode, encryption }: ToolbarProps) {
     if (Platform.OS === "web" && session?.hostToken) {
       const link = `${window.location.origin}/team-retro/session/${sessionCode}?h=${session.hostToken}`;
       navigator.clipboard.writeText(link);
-      alert("🔑 Host link copied! Keep this private!");
+      showToast("🔑 Host link copied!");
     }
   };
 
+  // Get session data to find host
+  const sessionHostName = session?.hostName;
+
+  // Super compact for very small screens
+  const isMobile = width < 480;
+
   return (
     <>
-      <View style={styles.toolbar}>
-        <View style={styles.leftSection}>
-          <View style={styles.sessionInfo}>
-            <Text style={styles.sessionCode}>Code: {sessionCode}</Text>
+      <Toast
+        message={toastMessage}
+        visible={toastVisible}
+        onHide={() => setToastVisible(false)}
+      />
+
+      <View style={[styles.toolbar, isCompact && styles.toolbarCompact, isMobile && styles.toolbarMobile]}>
+        {/* Row 1: Session info and user info */}
+        <View style={[styles.topRow, isMobile && styles.topRowMobile]}>
+          <View style={[styles.sessionInfo, isCompact && styles.sessionInfoCompact]}>
+            <Text style={[styles.sessionCode, isMobile && styles.sessionCodeMobile]}>
+              {sessionCode}
+            </Text>
             <TouchableOpacity style={styles.copyButton} onPress={copySessionLink}>
-              <Text style={styles.copyButtonText}>📋 Copy Link</Text>
+              <Text style={styles.copyButtonText}>📋</Text>
             </TouchableOpacity>
             {isHost && (
-              <TouchableOpacity style={styles.hostLinkButton} onPress={copyHostLink}>
-                <Text style={styles.hostLinkButtonText}>🔑 Host Link</Text>
+              <TouchableOpacity style={[styles.hostLinkButton, isMobile && styles.hostLinkButtonMobile]} onPress={copyHostLink}>
+                <Text style={styles.hostLinkButtonText}>🔑</Text>
               </TouchableOpacity>
             )}
           </View>
 
-          {/* Presence indicators */}
-          <View style={styles.presenceContainer}>
-            <Text style={styles.presenceLabel}>Online:</Text>
-            <View style={styles.presenceAvatars}>
-              {presence.map((p) => (
-                <div key={p._id} title={p.userName}>
-                  <View
-                    style={[
-                      styles.presenceAvatar,
-                      { backgroundColor: p.color },
-                    ]}
-                  >
-                    <Text style={styles.presenceInitial}>
-                      {p.userName.charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                </div>
-              ))}
-            </View>
-            <Text style={styles.presenceCount}>({presence.length})</Text>
+          <View style={[styles.userSection, isMobile && styles.userSectionMobile]}>
+            <TouchableOpacity
+              style={[styles.userNameButton, isMobile && styles.userNameButtonMobile]}
+              onPress={() => {
+                setNewUserName(userName || "");
+                setShowRenameModal(true);
+              }}
+            >
+              <Text style={[styles.userName, isMobile && styles.userNameMobile]} numberOfLines={1}>
+                {userName}
+              </Text>
+              <Text style={styles.editIcon}>✏️</Text>
+            </TouchableOpacity>
+
+            {isHost && !isMobile && (
+              <View style={styles.hostBadge}>
+                <Text style={styles.hostBadgeText}>👑 Host</Text>
+              </View>
+            )}
           </View>
         </View>
 
-        <View style={styles.centerSection}>
+        {/* Row 2: Actions and presence */}
+        <View style={[styles.bottomRow, isMobile && styles.bottomRowMobile]}>
           <TouchableOpacity
-            style={styles.addButton}
+            style={[styles.addButton, isMobile && styles.addButtonMobile]}
             onPress={() => setShowAddCard(true)}
           >
-            <Text style={styles.addButtonText}>➕ Add Card</Text>
+            <Text style={styles.addButtonText}>{isMobile ? "➕" : "➕ Add Card"}</Text>
           </TouchableOpacity>
-        </View>
 
-        <View style={styles.rightSection}>
-          {isHost && (
-            <View style={styles.hostBadge}>
-              <Text style={styles.hostBadgeText}>👑 Host</Text>
+          {/* Presence indicators with crown for host */}
+          {!isMobile && (
+            <View style={styles.presenceContainer}>
+              <Text style={styles.presenceLabel}>Online:</Text>
+              <View style={styles.presenceAvatars}>
+                {presence.map((p) => {
+                  const isHostUser = p.userName === sessionHostName;
+                  return (
+                    <div key={p._id} title={p.userName} style={{ position: 'relative' }}>
+                      <View
+                        style={[
+                          styles.presenceAvatar,
+                          { backgroundColor: p.color },
+                        ]}
+                      >
+                        <Text style={styles.presenceInitial}>
+                          {p.userName.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                      {isHostUser && (
+                        <View style={styles.crownBadge}>
+                          <Text style={styles.crownIcon}>👑</Text>
+                        </View>
+                      )}
+                    </div>
+                  );
+                })}
+              </View>
+              <Text style={styles.presenceCount}>({presence.length})</Text>
+            </View>
+          )}
+
+          {/* Mobile: Show compact presence */}
+          {isMobile && presence.length > 0 && (
+            <View style={styles.presenceContainerMobile}>
+              <View style={styles.presenceAvatars}>
+                {presence.slice(0, 3).map((p) => {
+                  const isHostUser = p.userName === sessionHostName;
+                  return (
+                    <div key={p._id} title={p.userName} style={{ position: 'relative' }}>
+                      <View
+                        style={[
+                          styles.presenceAvatarMobile,
+                          { backgroundColor: p.color },
+                        ]}
+                      >
+                        <Text style={styles.presenceInitialMobile}>
+                          {p.userName.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                      {isHostUser && (
+                        <View style={styles.crownBadgeMobile}>
+                          <Text style={styles.crownIconMobile}>👑</Text>
+                        </View>
+                      )}
+                    </div>
+                  );
+                })}
+              </View>
+              <Text style={styles.presenceCountMobile}>
+                {presence.length > 3 ? `+${presence.length - 3}` : `${presence.length}`}
+              </Text>
             </View>
           )}
         </View>
@@ -208,15 +309,57 @@ export default function Toolbar({ sessionCode, encryption }: ToolbarProps) {
           </View>
         </View>
       </Modal>
+
+      {/* Rename Modal */}
+      <Modal
+        visible={showRenameModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowRenameModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Change Your Name</Text>
+
+            <Text style={styles.label}>New Name</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={newUserName}
+              onChangeText={setNewUserName}
+              placeholder="Enter your name"
+              placeholderTextColor="#9ca3af"
+              autoFocus
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => {
+                  setShowRenameModal(false);
+                  setNewUserName("");
+                }}
+              >
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonPrimary]}
+                onPress={handleRename}
+                disabled={!newUserName.trim()}
+              >
+                <Text style={styles.modalButtonTextPrimary}>Update</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }
 
 const styles = StyleSheet.create({
   toolbar: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: "column",
+    gap: 12,
     padding: 16,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
@@ -227,29 +370,60 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  leftSection: {
-    flex: 1,
+  toolbarCompact: {
+    padding: 12,
+    gap: 10,
+  },
+  toolbarMobile: {
+    padding: 10,
+    gap: 8,
+  },
+  topRow: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    gap: 20,
+    gap: 12,
   },
-  centerSection: {
+  topRowMobile: {
+    gap: 8,
+  },
+  bottomRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
+    gap: 12,
   },
-  rightSection: {
-    flex: 1,
-    alignItems: "flex-end",
+  bottomRowMobile: {
+    gap: 8,
+    justifyContent: "center",
   },
   sessionInfo: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
+  sessionInfoCompact: {
+    gap: 6,
+  },
+  userSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  userSectionMobile: {
+    gap: 4,
+    flex: 1,
+    justifyContent: "flex-end",
+  },
   sessionCode: {
     fontSize: 14,
     fontWeight: "700",
     color: "#111827",
     letterSpacing: 1,
+  },
+  sessionCodeMobile: {
+    fontSize: 13,
+    letterSpacing: 0.5,
   },
   copyButton: {
     paddingHorizontal: 10,
@@ -269,6 +443,10 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1,
     borderColor: "#fbbf24",
+  },
+  hostLinkButtonMobile: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
   },
   hostLinkButtonText: {
     fontSize: 12,
@@ -307,6 +485,51 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#6b7280",
   },
+  crownBadge: {
+    position: "absolute",
+    top: -8,
+    right: -8,
+    backgroundColor: "#fef3c7",
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
+  crownIcon: {
+    fontSize: 10,
+  },
+  userNameButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: "#f3f4f6",
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+  },
+  userNameButtonMobile: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    gap: 4,
+    maxWidth: 140,
+  },
+  userName: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#374151",
+  },
+  userNameMobile: {
+    fontSize: 12,
+  },
+  editIcon: {
+    fontSize: 12,
+    opacity: 0.7,
+  },
   addButton: {
     paddingHorizontal: 20,
     paddingVertical: 10,
@@ -318,10 +541,54 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  addButtonMobile: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
   addButtonText: {
     color: "#fff",
     fontSize: 15,
     fontWeight: "700",
+  },
+  presenceContainerMobile: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  presenceAvatarMobile: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
+  presenceInitialMobile: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  presenceCountMobile: {
+    fontSize: 11,
+    color: "#6b7280",
+    fontWeight: "600",
+  },
+  crownBadgeMobile: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    backgroundColor: "#fef3c7",
+    borderRadius: 8,
+    width: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
+  crownIconMobile: {
+    fontSize: 8,
   },
   hostBadge: {
     paddingHorizontal: 12,

@@ -167,7 +167,7 @@ const Card = React.memo(function Card({ card, votes, hasVoted, voters, encryptio
               },
             ]}
           >
-            {/* Drag handle */}
+            {/* Drag handle - only this area is draggable */}
             <div {...attributes} {...listeners} style={{ cursor: "grab", width: "100%", touchAction: "none" }}>
               <View style={styles.dragHandle}>
                 <View style={styles.dragIndicator} />

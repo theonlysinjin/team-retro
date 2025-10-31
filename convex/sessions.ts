@@ -99,12 +99,9 @@ export const getSessionByHostToken = query({
     hostToken: v.string(),
   },
   handler: async (ctx, args) => {
-    const session = await ctx.db
-      .query("sessions")
-      .withIndex("by_host_token", (q) => q.eq("hostToken", args.hostToken))
-      .first();
-
-    return session;
+    // Can't use index on optional field, so collect all and filter
+    const sessions = await ctx.db.query("sessions").collect();
+    return sessions.find((s) => s.hostToken === args.hostToken);
   },
 });
 

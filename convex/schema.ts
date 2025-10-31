@@ -6,14 +6,13 @@ export default defineSchema({
   sessions: defineTable({
     code: v.string(),
     hostName: v.string(),
-    hostToken: v.string(), // Secret token for host to reconnect
+    hostToken: v.optional(v.string()), // Secret token for host to reconnect (optional for backward compatibility)
     // Encrypted session key (encrypted with password)
     encryptedKey: v.optional(v.string()),
     createdAt: v.number(),
     status: v.union(v.literal("active"), v.literal("archived")),
   })
-    .index("by_code", ["code"])
-    .index("by_host_token", ["hostToken"]),
+    .index("by_code", ["code"]),
 
   // Cards - content is encrypted on client before sending
   cards: defineTable({
